@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 # place triominoes in matrix 3 rows x 4 cols
 
@@ -43,11 +44,10 @@ def make_matrix(triominoes):
             rows.append(list(A))
     return rows
 
-
 def prepare(mx):
     # note that when applying alg-x we're only interested in 1's
     # so we add 2 lists that define where the 1's are
-    rows = mx    
+    rows = mx
     # note that zip(*b) is the transpose of b
     cols = [list(i) for i in zip(*rows)]
 
@@ -55,7 +55,7 @@ def prepare(mx):
     print()
 
     def find_ones(rows):
-        # returns indexes in rows where the ondes are
+        # returns indexes in rows where the ones are
         # example: [[0, 3], [1, 3], [1, 2], [2]]
         lv_row_has_1_at = []
         for row in rows:
@@ -86,8 +86,17 @@ def cover(r, row_valid, col_valid, row_has_1_at, col_has_1_at):
     #   cover all cols that have a 1 in row r
     #   cover all rows r' that intersect/overlap with row r
     # returns row_valid, col_valid
+    for col in r:
+        col_valid[col] = 0
 
-    pass
+    index=0
+    for row in row_has_1_at:
+        for col in r:
+            if col in row:
+                row_valid[index] = 0
+        index += 1
+
+    return row_valid, col_valid
 
 def print_solution(solution, row_has_1_at):
     # place triominoes in matrix D 3 rows x 4 cols
@@ -109,10 +118,32 @@ def print_solution(solution, row_has_1_at):
     for i in D:
         print(i)
 
-def solve(row_valid, col_valid, row_has_1_at, col_has_1_at, solution):
+def solve(row_valid, col_valid, row_has_1_at, col_has_1_at, solution=[]):
     # using Algoritm X, find all solutions (= set of rows) given valid/uncovered rows and cols
-    pass
+    if not 1 in col_valid:
+        print("\n Solution found", solution)
+        print_solution(solution, row_has_1_at)
+        return solution
 
+    col_ones_amount = [len(ones) for ones in col_has_1_at]
+    for i in range(len(col_valid)):
+        if col_valid[i] == 0:
+            col_ones_amount[i] = math.inf
+    col_least_ones = col_ones_amount.index(min(col_ones_amount))
+
+    index = 0
+    for row in row_has_1_at:
+        if row_valid[index] == 1 and col_least_ones in row:
+            # remove cols+rows from matrix, and backtrack
+            old_row_valid, old_col_valid = row_valid.copy(), col_valid.copy()
+            row_valid, col_valid = cover(row, row_valid, col_valid, row_has_1_at, col_has_1_at)
+            solution.append(row_has_1_at.index(row))
+            solve(row_valid, col_valid, row_has_1_at, col_has_1_at, solution)
+            solution.pop()
+            row_valid, col_valid = old_row_valid, old_col_valid
+        index += 1
+
+    return solution
 
 mx = make_matrix(triominoes)
 

@@ -1,4 +1,5 @@
 import time
+import copy
 
 #   1 2 3 4 .. 9
 # A
@@ -22,14 +23,13 @@ unit_list = ([cross(r, cols) for r in rows] +                             # 9 ro
              [cross(rows, c) for c in cols] +                             # 9 cols
              [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]) # 9 units
 
-
 units = dict((s, [u for u in unit_list if s in u]) for s in cells)
 peers = dict((s, set(sum(units[s],[]))-set([s])) for s in cells)
 
 def test():
     # a set of tests that must pass
     assert len(cells) == 81
-    assert len(unitlist) == 27
+    assert len(unit_list) == 27
     assert all(len(units[s]) == 3 for s in cells)
     assert all(len(peers[s]) == 20 for s in cells)
     assert units['C2'] == [['A2', 'B2', 'C2', 'D2', 'E2', 'F2', 'G2', 'H2', 'I2'],
@@ -77,10 +77,93 @@ def no_conflict(grid, c, val):
            return False # conflict
     return True
 
+def get_next_cell(grid):
+    for cell in grid:
+        if len(grid[cell]) >= 2:
+            return cell
+
+    return None
+
+def solve_rest_ac(values):
+    next_cell = get_next_cell(values)
+    if next_cell is None:
+        # Solution found
+        display(values)
+        return True
+
+    for val in values[next_cell]:
+        values_copy = values.copy()
+        if assign(values_copy, next_cell, val):
+            solved = solve_rest_ac(values_copy)
+            if solved:
+                return True
+
+    return False
+
+def solve_ac(grid):
+    values = dict((cell, digits) for cell in cells)
+    display(grid)
+    for cell in grid:
+        if len(grid[cell]) == 1:
+            assign(values, cell, grid[cell])
+
+    solve_rest_ac(values)
+
+    # print("displaying")
+    # display(values)
+    return values
+
+def assign(values, current_cell, val):
+    other_values = values[current_cell].replace(val, '')
+    if all(arc_consistency(values, current_cell, to_remove) for to_remove in other_values):
+        return values
+    else:
+        return False
+
+def arc_consistency(values, current_cell, to_remove):
+    if to_remove not in values[current_cell]:
+        return values
+
+    values[current_cell] = values[current_cell].replace(to_remove, '')
+
+    # If a cell has only one remaining possible value, remove this value from peers
+    if len(values[current_cell]) == 0:
+        # Removed a last possible value of a cell
+        return False
+    elif len(values[current_cell]) == 1:
+        remove_other = values[current_cell]
+        if not all(arc_consistency(values, other_cells, remove_other) for other_cells in peers[current_cell]):
+            return False
+
+    # If a unit only has one possible cell for a value, put it in that cell
+    for u in units[current_cell]:
+        dplaces = [current_cell for current_cell in u if to_remove in values[current_cell]]
+        if len(dplaces) == 0:
+            return False
+        elif len(dplaces) == 1:
+            if not assign(values, dplaces[0], to_remove):
+                return False
+
+    return values
+
 def solve(grid):
     # backtracking search for a solution (DFS)
     # your code here
-    pass
+    current_cell = get_next_cell(grid)
+    if current_cell == None:
+        # Sudoku is completed
+        display(grid)
+        return True
+
+    for number in grid[current_cell]:
+        if no_conflict(grid, current_cell, number):
+            previous_value = grid[current_cell]
+            grid[current_cell] = number
+            solved = solve(grid)
+            if solved:
+                return True
+            else:
+                grid[current_cell] = previous_value
 
 # minimum nr of clues for a unique solution is 17
 slist = [None for x in range(20)]
@@ -110,7 +193,7 @@ for i,sudo in enumerate(slist):
     print(sudo)
     d = parse_string_to_dict(sudo)
     start_time = time.time()
-    solve(d)
+    solve_ac(d)
     end_time = time.time()
     hours, rem = divmod(end_time-start_time, 3600)
     minutes, seconds = divmod(rem, 60)
